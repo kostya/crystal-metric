@@ -1,6 +1,6 @@
 # Crystal Metric
 
-This is set of 21 benchmarks for Crystal language, as one file. Program were taken from my benchmarks: [jit-benchmarks](https://github.com/kostya/jit-benchmarks), [crystal-benchmarks-game](https://github.com/kostya/crystal-benchmarks-game), [benchmarks](https://github.com/kostya/benchmarks)
+This is set of 21 benchmarks for Crystal language, as one file. Program were taken from my benchmarks: [jit-benchmarks](https://github.com/kostya/jit-benchmarks), [crystal-benchmarks-game](https://github.com/kostya/crystal-benchmarks-game), [benchmarks](https://github.com/kostya/benchmarks). Benchmarks implemented as separated classes, so good for tests multi module compilation.
 
 ## Run
 
