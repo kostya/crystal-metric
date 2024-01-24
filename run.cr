@@ -1091,6 +1091,7 @@ class Threadring < Benchmark
     @receivers = Array.new(THREAD_COUNT) { |i| Receiver.new(i + 1, @res) }
     (0...THREAD_COUNT - 1).each { |i| @receivers[i].next = @receivers[i + 1] }
     @receivers[THREAD_COUNT - 1].next = @receivers[0]
+    @result = 0
   end
 
   def run
@@ -1101,7 +1102,7 @@ class Threadring < Benchmark
     @result = @res.receive
   end
 
-  getter result
+  getter result : Int32
 
   def expected
     38
@@ -1112,6 +1113,10 @@ require "base64"
 
 class Base64Encode < Benchmark
   TRIES = 8192
+
+  @str : String
+  @str2 : String
+  @str3 : String
 
   def initialize(@n = 300_000)
     @str = "a" * @n
@@ -1139,6 +1144,10 @@ end
 
 class Base64Decode < Benchmark
   TRIES = 8192
+
+  @str : String
+  @str2 : String
+  @str3 : String
 
   def initialize(@n = 230_000)
     @str = "a" * @n
@@ -1420,7 +1429,7 @@ class JsonParseSerializable < Benchmark
     j = JsonGenerate.new(800_000)
     j.run
     @text = j.@result.to_s
-    @result = Coordinate.new(0, 0, 0)
+    @result = Coordinate.new(0.0, 0.0, 0.0)
   end
 
   def run
