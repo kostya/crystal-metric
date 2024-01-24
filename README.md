@@ -37,3 +37,7 @@ JsonParsePull: ok in 0.889s
 OK 21
 24.1921s
 ```
+
+## Crystal releases:
+
+![Crystal releases](https://github.com/kostya/crystal-metric/blob/master/releases.png)
