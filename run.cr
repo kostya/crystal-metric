@@ -490,11 +490,11 @@ class Fasta < Benchmark
   end
 
   def result
-    Digest::CRC32.hexdigest(@result.to_s)
+    Digest::CRC32.checksum(@result.to_s)
   end
 
   def expected
-    "0d53da0f"
+    223599119
   end
 end
 
@@ -552,11 +552,11 @@ class Knuckeotide < Benchmark
   end
 
   def result
-    Digest::CRC32.hexdigest(@result.to_s)
+    Digest::CRC32.checksum(@result.to_s)
   end
 
   def expected
-    "09816286"
+    159474310
   end
 end
 
@@ -609,11 +609,11 @@ class Mandelbrot < Benchmark
   end
 
   def result
-    Digest::CRC32.hexdigest(@result.to_s)
+    Digest::CRC32.checksum(@result.to_s)
   end
 
   def expected
-    "aa9f0ce8"
+    2862550248
   end
 end
 
@@ -880,11 +880,11 @@ class Pidigits < Benchmark
   end
 
   def result
-    Digest::CRC32.hexdigest(@result.to_s)
+    Digest::CRC32.checksum(@result.to_s)
   end
 
   def expected
-    "86aed558"
+    2259604824
   end
 end
 
@@ -949,11 +949,11 @@ class RegexDna < Benchmark
   end
 
   def result
-    Digest::CRC32.hexdigest(@result.to_s)
+    Digest::CRC32.checksum(@result.to_s)
   end
 
   def expected
-    "d1080aaf"
+    3506965167
   end
 end
 
@@ -993,11 +993,11 @@ class Revcomp < Benchmark
   end
 
   def result
-    Digest::CRC32.hexdigest(@result.to_s)
+    Digest::CRC32.checksum(@result.to_s)
   end
 
   def expected
-    "ea9ffad1"
+    3936352977
   end
 end
 
@@ -1331,11 +1331,11 @@ class JsonGenerate < Benchmark
   end
 
   def result
-    Digest::CRC32.hexdigest(@result.to_s)
+    Digest::CRC32.checksum(@result.to_s)
   end
 
   def expected
-    "829fd976"
+    2191513974
   end
 end
 
