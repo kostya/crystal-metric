@@ -89,7 +89,9 @@ abstract class Benchmark
     {% end %}
 
     {% if flag?(:release) %}
-      File.open(FILENAME, "w") { |f| results.to_json(f) }
+      if !filter
+        File.open(FILENAME, "w") { |f| results.to_json(f) }
+      end
     {% end %}
 
     if ok + fails > 0
