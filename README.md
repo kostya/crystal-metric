@@ -38,7 +38,7 @@ NeuralNet: ok in 1.137s, award 1.0
 Noise: ok in 0.946s, award 1.0
 Sudoku: ok in 0.946s, award 1.0
 TextRaytracer: ok in 1.589s, award 1.0
-29.4373s, 26.00 / 26
+29.4373s, 26.00/26, 1.00
 ```
 
 ## Crystal releases:

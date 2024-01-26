@@ -4,7 +4,10 @@ require "base64"
 require "json"
 require "complex"
 
-Benchmark.run
+# ./metric
+# ./metric Brainfuck2
+# ./metric Brainfuck,Brainfuck2
+Benchmark.run(ARGV[0]?)
 
 abstract class Benchmark
   abstract def run
@@ -33,7 +36,7 @@ abstract class Benchmark
     release_results
   end
 
-  def self.run
+  def self.run(filter : String? = nil)
     release_results = load_release_results
     results = {} of String => Float64
 
@@ -42,50 +45,110 @@ abstract class Benchmark
     ok = 0
     fails = 0
     silent = ENV["SILENT"]? == "1"
+    if filter
+      filter = filter.split(",").map(&.strip)
+    end
 
     {% for kl in @type.subclasses %}
-      print "{{kl}}: " unless silent
-      bench = {{kl.id}}.new
-      GC.collect
-      t = Time.local
-      bench.run
-      delta = (Time.local - t).to_f
-      results["{{kl.id}}"] = delta
-      
-      {% if flag?(:release) %}
-        award = 1.0
-      {% else %}
-        award = release_results["{{kl.id}}"] / delta
-      {% end %}
+      if !filter || (filter && filter.includes?("{{kl.id}}"))
+        print "{{kl}}: " unless silent
+        bench = {{kl.id}}.new
+        GC.collect
+        t = Time.local
+        bench.run
+        delta = (Time.local - t).to_f
+        results["{{kl.id}}"] = delta
+        
+        {% if flag?(:release) %}
+          award = 1.0
+        {% else %}
+          award = release_results["{{kl.id}}"] / delta
+        {% end %}
 
-      GC.collect
-      if bench.result == bench.expected
-        print "ok " unless silent
-        ok += 1
-      else
-        print "err result=#{bench.result.inspect}, but expected=#{bench.expected.inspect} " unless silent
-        fails += 1
-      end
-      
-      unless silent
-        print "in %.3fs, award %.1f\n" % {delta, award}
-      end
-      
-      summary_time += delta
-      awards += award
+        GC.collect
+        if bench.result == bench.expected
+          print "ok " unless silent
+          ok += 1
+        else
+          print "err result=#{bench.result.inspect}, but expected=#{bench.expected.inspect} " unless silent
+          fails += 1
+        end
+        
+        unless silent
+          print "in %.3fs, award %.1f\n" % {delta, award}
+        end
+        
+        summary_time += delta
+        awards += award
 
-      GC.collect
-      sleep 0.1
-      GC.collect
-      sleep 0.1
+        GC.collect
+        sleep 0.1
+        GC.collect
+        sleep 0.1
+      end
     {% end %}
 
     {% if flag?(:release) %}
       File.open(FILENAME, "w") { |f| results.to_json(f) }
     {% end %}
 
-    puts "%.4fs, %.2f / %d" % {summary_time, awards, {{@type.subclasses.size}}}
+    if ok + fails > 0
+      puts "%.4fs, %.2f/%d, %.2f" % {summary_time, awards, ok + fails, awards / (ok + fails).to_f}
+    end
     exit 1 if fails > 0
+  end
+end
+
+class Pidigits < Benchmark
+  def initialize(@nn = 4500)
+    @result = IO::Memory.new
+  end
+
+  def run
+    start = Time.local
+
+    i = 0
+    k = 0
+    ns = 0.to_big_i
+    a = 0.to_big_i
+    t = 0
+    u = 0.to_big_i
+    k1 = 1
+    n = 1.to_big_i
+    d = 1.to_big_i
+
+    while true
+      k += 1
+      t = n << 1
+      n *= k
+      k1 += 2
+      a = (a + t) * k1
+      d *= k1
+      if a >= n
+        t, u = (n * 3 + a).divmod(d)
+        u += n
+        if d > u
+          ns = ns * 10 + t
+          i += 1
+          if i % 10 == 0
+            @result << "%010d\t:%d\n" % {ns.to_u64, i}
+            ns = 0
+          end
+          break if i >= @nn
+
+          a = (a - (d * t)) * 10
+          n *= 10
+        end
+      end
+    end
+  end
+
+  def result
+    Digest::CRC32.checksum(@result.to_s)
+  end
+
+  def expected
+    2259604824
   end
 end
 
@@ -869,59 +932,6 @@ class Nbody < Benchmark
 
   def expected
     {-0.16907516382852447, -0.16905678767532126}
-  end
-end
-
-class Pidigits < Benchmark
-  def initialize(@nn = 4500)
-    @result = IO::Memory.new
-  end
-
-  def run
-    start = Time.local
-
-    i = 0
-    k = 0
-    ns = 0.to_big_i
-    a = 0.to_big_i
-    t = 0
-    u = 0.to_big_i
-    k1 = 1
-    n = 1.to_big_i
-    d = 1.to_big_i
-
-    while true
-      k += 1
-      t = n << 1
-      n *= k
-      k1 += 2
-      a = (a + t) * k1
-      d *= k1
-      if a >= n
-        t, u = (n * 3 + a).divmod(d)
-        u += n
-        if d > u
-          ns = ns * 10 + t
-          i += 1
-          if i % 10 == 0
-            @result << "%010d\t:%d\n" % {ns.to_u64, i}
-            ns = 0
-          end
-          break if i >= @nn
-
-          a = (a - (d * t)) * 10
-          n *= 10
-        end
-      end
-    end
-  end
-
-  def result
-    Digest::CRC32.checksum(@result.to_s)
-  end
-
-  def expected
-    2259604824
   end
 end
 
@@ -1717,19 +1727,23 @@ class Noise < Benchmark
   SIZE = 256
   record Vec2, x : Float64, y : Float64
 
+  @[AlwaysInline]
   def self.lerp(a, b, v)
     a * (1.0 - v) + b * v
   end
 
+  @[AlwaysInline]
   def self.smooth(v)
     v * v * (3.0 - 2.0 * v)
   end
 
+  @[AlwaysInline]
   def self.random_gradient
     v = RANDOM.next_float * Math::PI * 2.0
     Vec2.new(Math.cos(v), Math.sin(v))
   end
 
+  @[AlwaysInline]
   def self.gradient(orig, grad, p)
     sp = Vec2.new(p.x - orig.x, p.y - orig.y)
     grad.x * sp.x + grad.y * sp.y
@@ -1742,6 +1756,7 @@ class Noise < Benchmark
       @permutations.shuffle!(RANDOM)
     end
 
+    @[AlwaysInline]
     def get_gradient(x, y)
       idx = @permutations[x & 255] + @permutations[y & 255]
       @rgradients[idx & 255]
@@ -2015,26 +2030,32 @@ class TextRaytracer < Benchmark
   # from https://github.com/crystal-lang/crystal/blob/master/samples/text_raytracer.cr
 
   record Vector, x : Float64, y : Float64, z : Float64 do
+    @[AlwaysInline]
     def scale(s)
       Vector.new(x * s, y * s, z * s)
     end
 
+    @[AlwaysInline]
     def +(other)
       Vector.new(x + other.x, y + other.y, z + other.z)
     end
 
+    @[AlwaysInline]
     def -(other)
       Vector.new(x - other.x, y - other.y, z - other.z)
     end
 
+    @[AlwaysInline]
     def dot(other)
       x*other.x + y*other.y + z*other.z
     end
 
+    @[AlwaysInline]
     def magnitude
       Math.sqrt self.dot(self)
     end
 
+    @[AlwaysInline]
     def normalize
       scale(1.0 / magnitude)
     end
@@ -2043,16 +2064,19 @@ class TextRaytracer < Benchmark
   record Ray, orig : Vector, dir : Vector
 
   record Color, r : Float64, g : Float64, b : Float64 do
+    @[AlwaysInline]
     def scale(s)
       Color.new(r * s, g * s, b * s)
     end
 
+    @[AlwaysInline]
     def +(other)
       Color.new(r + other.r, g + other.g, b + other.b)
     end
   end
 
   record Sphere, center : Vector, radius : Float64, color : Color do
+    @[AlwaysInline]
     def get_normal(pt)
       (pt - center).normalize
     end
