@@ -1,23 +1,63 @@
 require "digest/crc32"
+require "big"
+require "base64"
+require "json"
+require "complex"
+
+Benchmark.run
 
 abstract class Benchmark
   abstract def run
   abstract def result
   abstract def expected
 
+  FILENAME = "#{__DIR__}/results.js"
+
+  def self.release_results_error
+    puts "ERROR\nNot found release results!\nBefore run in any other mode, you should compile and run this metric in --release mode,\nbecause all other modes compare to release."
+    exit 1
+  end
+
+  def self.load_release_results
+    release_results = {} of String => Float64
+    {% unless flag?(:release) %}
+      if File.exists?(FILENAME)
+        release_results = Hash(String, Float64).from_json(File.read(FILENAME))
+        {% for kl in @type.subclasses %}
+          release_results_error unless release_results["{{kl.id}}"]?
+        {% end %}
+      else
+        release_results_error
+      end
+    {% end %}
+    release_results
+  end
+
   def self.run
+    release_results = load_release_results
+    results = {} of String => Float64
+
     summary_time = 0.0
+    awards = 0.0
     ok = 0
     fails = 0
     silent = ENV["SILENT"]? == "1"
 
-    {% for a in @type.subclasses %}
-      print "{{a}}: " unless silent
-      bench = {{a.id}}.new
+    {% for kl in @type.subclasses %}
+      print "{{kl}}: " unless silent
+      bench = {{kl.id}}.new
       GC.collect
       t = Time.local
       bench.run
       delta = (Time.local - t).to_f
+      results["{{kl.id}}"] = delta
+      
+      {% if flag?(:release) %}
+        award = 1.0
+      {% else %}
+        award = release_results["{{kl.id}}"] / delta
+      {% end %}
+
       GC.collect
       if bench.result == bench.expected
         print "ok " unless silent
@@ -26,27 +66,26 @@ abstract class Benchmark
         print "err result=#{bench.result.inspect}, but expected=#{bench.expected.inspect} " unless silent
         fails += 1
       end
-      print "in %.3fs\n" % {delta} unless silent
+      
+      unless silent
+        print "in %.3fs, award %.1f\n" % {delta, award}
+      end
+      
       summary_time += delta
+      awards += award
+
       GC.collect
       sleep 0.1
       GC.collect
       sleep 0.1
     {% end %}
 
-    unless silent
-      puts "----"
-      if fails > 0
-        puts "ERR #{fails}"
-        puts "%.4fs" % {summary_time}
-        exit 1
-      else
-        puts "OK #{ok}"
-        puts "%.4fs" % {summary_time}
-      end
-    else
-      puts "%.4f" % {summary_time}
-    end
+    {% if flag?(:release) %}
+      File.open(FILENAME, "w") { |f| results.to_json(f) }
+    {% end %}
+
+    puts "%.4fs, %.2f / %d" % {summary_time, awards, {{@type.subclasses.size}}}
+    exit 1 if fails > 0
   end
 end
 
@@ -833,8 +872,6 @@ class Nbody < Benchmark
   end
 end
 
-require "big"
-
 class Pidigits < Benchmark
   def initialize(@nn = 4500)
     @result = IO::Memory.new
@@ -1109,8 +1146,6 @@ class Threadring < Benchmark
   end
 end
 
-require "base64"
-
 class Base64Encode < Benchmark
   TRIES = 8192
 
@@ -1307,8 +1342,6 @@ class Primes < Benchmark
   end
 end
 
-require "json"
-
 class JsonGenerate < Benchmark
   struct Coordinate
     include JSON::Serializable
@@ -1490,4 +1523,645 @@ class JsonParsePull < Benchmark
   end
 end
 
-Benchmark.run
+class Mandelbrot2 < Benchmark
+  # from https://github.com/crystal-lang/crystal/blob/master/samples/mandelbrot2.cr
+  def initialize(@n = 40)
+    @res = 0_u64
+  end
+
+  def mandelbrot(a)
+    Iterator.of(a).first(100).reduce(a) { |z, c| z*z + c }
+  end
+
+  def run
+    res = 0_u64
+    n = @n.to_f
+    n.step(to: -n, by: -0.05) do |y|
+      (-n).to_f.step(to: n, by: 0.0315) do |x|
+        res &+= ((mandelbrot(x + y.i).abs < 2) ? '*' : ' ').ord
+      end
+    end
+    @res = res
+  end
+
+  def result
+    @res
+  end
+
+  def expected
+    130139180
+  end
+end
+
+class NeuralNet < Benchmark
+  # from https://github.com/crystal-lang/crystal/blob/master/samples/neural_net.cr
+
+  RANDOM = Random.new(0_u64, 0_u64)
+
+  class Synapse
+    property weight : Float64
+    property prev_weight : Float64
+    property :source_neuron
+    property :dest_neuron
+
+    def initialize(@source_neuron : Neuron, @dest_neuron : Neuron)
+      @prev_weight = @weight = RANDOM.next_float * 2 - 1
+    end
+  end
+
+  class Neuron
+    LEARNING_RATE = 1.0
+    MOMENTUM      = 0.3
+
+    property :synapses_in
+    property :synapses_out
+    property threshold : Float64
+    property prev_threshold : Float64
+    property :error
+    property :output
+
+    def initialize
+      @prev_threshold = @threshold = RANDOM.next_float * 2 - 1
+      @synapses_in = [] of Synapse
+      @synapses_out = [] of Synapse
+      @output = 0.0
+      @error = 0.0
+    end
+
+    def calculate_output
+      activation = synapses_in.reduce(0.0) do |sum, synapse|
+        sum + synapse.weight * synapse.source_neuron.output
+      end
+      activation -= threshold
+
+      @output = 1.0 / (1.0 + Math.exp(-activation))
+    end
+
+    def derivative
+      output * (1 - output)
+    end
+
+    def output_train(rate, target)
+      @error = (target - output) * derivative
+      update_weights(rate)
+    end
+
+    def hidden_train(rate)
+      @error = synapses_out.reduce(0.0) do |sum, synapse|
+        sum + synapse.prev_weight * synapse.dest_neuron.error
+      end * derivative
+      update_weights(rate)
+    end
+
+    def update_weights(rate)
+      synapses_in.each do |synapse|
+        temp_weight = synapse.weight
+        synapse.weight += (rate * LEARNING_RATE * error * synapse.source_neuron.output) + (MOMENTUM * (synapse.weight - synapse.prev_weight))
+        synapse.prev_weight = temp_weight
+      end
+      temp_threshold = threshold
+      @threshold += (rate * LEARNING_RATE * error * -1) + (MOMENTUM * (threshold - prev_threshold))
+      @prev_threshold = temp_threshold
+    end
+  end
+
+  class NeuralNetwork
+    @input_layer : Array(Neuron)
+    @hidden_layer : Array(Neuron)
+    @output_layer : Array(Neuron)
+
+    def initialize(inputs, hidden, outputs)
+      @input_layer = (1..inputs).map { Neuron.new }
+      @hidden_layer = (1..hidden).map { Neuron.new }
+      @output_layer = (1..outputs).map { Neuron.new }
+
+      @input_layer.each_cartesian(@hidden_layer) do |source, dest|
+        synapse = Synapse.new(source, dest)
+        source.synapses_out << synapse
+        dest.synapses_in << synapse
+      end
+      @hidden_layer.each_cartesian(@output_layer) do |source, dest|
+        synapse = Synapse.new(source, dest)
+        source.synapses_out << synapse
+        dest.synapses_in << synapse
+      end
+    end
+
+    def train(inputs, targets)
+      feed_forward(inputs)
+
+      @output_layer.zip(targets) do |neuron, target|
+        neuron.output_train(0.3, target)
+      end
+      @hidden_layer.each do |neuron|
+        neuron.hidden_train(0.3)
+      end
+    end
+
+    def feed_forward(inputs)
+      @input_layer.zip(inputs) do |neuron, input|
+        neuron.output = input.to_f64
+      end
+      @hidden_layer.each do |neuron|
+        neuron.calculate_output if neuron
+      end
+      @output_layer.each do |neuron|
+        neuron.calculate_output if neuron
+      end
+    end
+
+    def current_outputs
+      @output_layer.map do |neuron|
+        neuron.output
+      end
+    end
+  end
+
+  def initialize(@n = 1500000)
+    @res = [] of Float64
+  end
+
+  def run
+    xor = NeuralNetwork.new(2, 10, 1)
+
+    @n.times do
+      xor.train([0, 0], [0])
+      xor.train([1, 0], [1])
+      xor.train([0, 1], [1])
+      xor.train([1, 1], [0])
+    end
+
+    xor.feed_forward([0, 0])
+    @res += xor.current_outputs
+    xor.feed_forward([0, 1])
+    @res += xor.current_outputs
+    xor.feed_forward([1, 0])
+    @res += xor.current_outputs
+    xor.feed_forward([1, 1])
+    @res += xor.current_outputs
+  end
+
+  def result
+    @res
+  end
+
+  def expected
+    [0.000845335077086041, 0.9990857490807116, 0.9991775011715351, 0.0008922162500023385]
+  end
+end
+
+class Noise < Benchmark
+  # from https://github.com/crystal-lang/crystal/blob/master/samples/noise.cr
+  RANDOM = Random.new(0_u64, 0_u64)
+
+  SIZE = 256
+  record Vec2, x : Float64, y : Float64
+
+  def self.lerp(a, b, v)
+    a * (1.0 - v) + b * v
+  end
+
+  def self.smooth(v)
+    v * v * (3.0 - 2.0 * v)
+  end
+
+  def self.random_gradient
+    v = RANDOM.next_float * Math::PI * 2.0
+    Vec2.new(Math.cos(v), Math.sin(v))
+  end
+
+  def self.gradient(orig, grad, p)
+    sp = Vec2.new(p.x - orig.x, p.y - orig.y)
+    grad.x * sp.x + grad.y * sp.y
+  end
+
+  struct Noise2DContext
+    def initialize
+      @rgradients = StaticArray(Vec2, 256).new { Noise.random_gradient }
+      @permutations = StaticArray(Int32, 256).new { |i| i }
+      @permutations.shuffle!(RANDOM)
+    end
+
+    def get_gradient(x, y)
+      idx = @permutations[x & 255] + @permutations[y & 255]
+      @rgradients[idx & 255]
+    end
+
+    def get_gradients(x, y)
+      x0f = x.floor
+      y0f = y.floor
+      x0 = x0f.to_i
+      y0 = y0f.to_i
+      x1 = x0 + 1
+      y1 = y0 + 1
+
+      {
+        {
+          get_gradient(x0, y0),
+          get_gradient(x1, y0),
+          get_gradient(x0, y1),
+          get_gradient(x1, y1),
+        },
+        {
+          Vec2.new(x0f + 0.0, y0f + 0.0),
+          Vec2.new(x0f + 1.0, y0f + 0.0),
+          Vec2.new(x0f + 0.0, y0f + 1.0),
+          Vec2.new(x0f + 1.0, y0f + 1.0),
+        },
+      }
+    end
+
+    def get(x, y)
+      p = Vec2.new(x, y)
+      gradients, origins = get_gradients(x, y)
+      v0 = Noise.gradient(origins[0], gradients[0], p)
+      v1 = Noise.gradient(origins[1], gradients[1], p)
+      v2 = Noise.gradient(origins[2], gradients[2], p)
+      v3 = Noise.gradient(origins[3], gradients[3], p)
+      fx = Noise.smooth(x - origins[0].x)
+      vx0 = Noise.lerp(v0, v1, fx)
+      vx1 = Noise.lerp(v2, v3, fx)
+      fy = Noise.smooth(y - origins[0].y)
+      Noise.lerp(vx0, vx1, fy)
+    end
+  end
+
+  SYM = [' ', '░', '▒', '▓', '█', '█']
+
+  def noise
+    pixels = Array.new(256) { Array.new(256, 0.0) }
+
+    n2d = Noise2DContext.new
+
+    100.times do |i|
+      256.times do |y|
+        256.times do |x|
+          v = n2d.get(x * 0.1, (y + (i * 128)) * 0.1) * 0.5 + 0.5
+          pixels[y][x] = v
+        end
+      end
+    end
+
+    res = 0_u64
+
+    256.times do |y|
+      256.times do |x|
+        v = pixels[y][x]
+        res &+= SYM[(v / 0.2).to_i].ord
+      end
+    end
+    res
+  end
+
+  def initialize(@n = 35)
+    @res = 0_u64
+  end
+
+  def run
+    @n.times do
+      @res &+= noise
+    end
+  end
+
+  def result
+    @res
+  end
+
+  def expected
+    22052067725
+  end
+end
+
+class Sudoku < Benchmark
+  # from https://github.com/crystal-lang/crystal/blob/master/samples/sudoku.cr
+
+  def sd_genmat
+    mr = Array.new(324) { [] of Int32 }
+    mc = Array.new(729) { [] of Int32 }
+    r = 0
+    (0...9).each do |i|
+      (0...9).each do |j|
+        (0...9).each do |k|
+          mc[r] = [9 * i + j, (i // 3 * 3 + j // 3) * 9 + k + 81, 9 * i + k + 162, 9 * j + k + 243]
+          r += 1
+        end
+      end
+    end
+    (0...729).each do |r2|
+      (0...4).each do |c2|
+        mr[mc[r2][c2]].push(r2)
+      end
+    end
+    {mr, mc}
+  end
+
+  def sd_update(mr, mc, sr, sc, r, v)
+    min, min_c = 10, 0
+    (0...4).each do |c2|
+      if v > 0
+        sc[mc[r][c2]] += 128
+      else
+        sc[mc[r][c2]] -= 128
+      end
+    end
+    (0...4).each do |c2|
+      c = mc[r][c2]
+      if v > 0
+        (0...9).each do |r2|
+          rr = mr[c][r2]
+          sr[rr] += +1
+          if sr[rr] == 1
+            p = mc[rr]
+            sc[p[0]] -= 1; sc[p[1]] -= 1; sc[p[2]] -= 1; sc[p[3]] -= 1
+            if sc[p[0]] < min
+              min, min_c = sc[p[0]], p[0]
+            end
+            if sc[p[1]] < min
+              min, min_c = sc[p[1]], p[1]
+            end
+            if sc[p[2]] < min
+              min, min_c = sc[p[2]], p[2]
+            end
+            if sc[p[3]] < min
+              min, min_c = sc[p[3]], p[3]
+            end
+          end
+        end
+      else
+        (0...9).each do |r2|
+          rr = mr[c][r2]
+          sr[rr] -= 1
+          if sr[rr] == 0
+            p = mc[rr]
+            sc[p[0]] += 1; sc[p[1]] += 1; sc[p[2]] += 1; sc[p[3]] += 1
+          end
+        end
+      end
+    end
+    {min, min_c}
+  end
+
+  def sd_solve(mr, mc, s)
+    ret = [] of Array(Int32)
+    sr, sc, hints = Array.new(729, 0), Array.new(324, 9), 0
+    (0...81).each do |i|
+      a = ('1' <= s[i] <= '9') ? s[i].ord - 49 : -1
+      if a >= 0
+        sd_update(mr, mc, sr, sc, i * 9 + a, 1)
+        hints += 1
+      end
+    end
+    cr, cc = Array.new(81, -1), Array.new(81, 0)
+    i, min, dir = 0, 10, 1
+    loop do
+      while i >= 0 && i < 81 - hints
+        if dir == 1
+          if min > 1
+            (0...324).each do |c|
+              if sc[c] < min
+                min, cc[i] = sc[c], c
+                break if min < 2
+              end
+            end
+          end
+          if min == 0 || min == 10
+            cr[i], dir, i = -1, -1, i - 1
+          end
+        end
+        c = cc[i]
+        if dir == -1 && cr[i] >= 0
+          sd_update(mr, mc, sr, sc, mr[c][cr[i]], -1)
+        end
+        r2_ = 9
+        (cr[i] + 1...9).each do |r2|
+          if sr[mr[c][r2]] == 0
+            r2_ = r2
+            break
+          end
+        end
+        if r2_ < 9
+          min, cc[i + 1] = sd_update(mr, mc, sr, sc, mr[c][r2_], 1)
+          cr[i], dir, i = r2_, 1, i + 1
+        else
+          cr[i], dir, i = -1, -1, i - 1
+        end
+      end
+      break if i < 0
+      o = [] of Int32
+      (0...81).each { |j| o.push((s[j].ord - 49).to_i32) }
+      (0...i).each do |j|
+        r = mr[cc[j]][cr[j]]
+        o[r // 9] = r % 9 + 1
+      end
+      ret.push(o)
+      i, dir = i - 1, -1
+    end
+    ret
+  end
+
+  SUDOKU = <<-SUDOKU
+..............3.85..1.2.......5.7.....4...1...9.......5......73..2.1........4...9 # near worst case for brute-force solver (wiki)
+.......12........3..23..4....18....5.6..7.8.......9.....85.....9...4.5..47...6... # gsf's sudoku q1 (Platinum Blonde)
+.2..5.7..4..1....68....3...2....8..3.4..2.5.....6...1...2.9.....9......57.4...9.. # (Cheese)
+........3..1..56...9..4..7......9.5.7.......8.5.4.2....8..2..9...35..1..6........ # (Fata Morgana)
+12.3....435....1....4........54..2..6...7.........8.9...31..5.......9.7.....6...8 # (Red Dwarf)
+1.......2.9.4...5...6...7...5.9.3.......7.......85..4.7.....6...3...9.8...2.....1 # (Easter Monster)
+.......39.....1..5..3.5.8....8.9...6.7...2...1..4.......9.8..5..2....6..4..7..... # Nicolas Juillerat's Sudoku explainer 1.2.1 (top 5)
+12.3.....4.....3....3.5......42..5......8...9.6...5.7...15..2......9..6......7..8
+..3..6.8....1..2......7...4..9..8.6..3..4...1.7.2.....3....5.....5...6..98.....5.
+1.......9..67...2..8....4......75.3...5..2....6.3......9....8..6...4...1..25...6.
+..9...4...7.3...2.8...6...71..8....6....1..7.....56...3....5..1.4.....9...2...7..
+....9..5..1.....3...23..7....45...7.8.....2.......64...9..1.....8..6......54....7 # dukuso's suexrat9 (top 1)
+7.8...3.....2.1...5.........4.....263...8.......1...9..9.6....4....7.5...........
+3.7.4...........918........4.....7.....16.......25..........38..9....5...2.6.....
+........8..3...4...9..2..6.....79.......612...6.5.2.7...8...5...1.....2.4.5.....3 # dukuso's suexratt (top 1)
+.......1.4.........2...........5.4.7..8...3....1.9....3..4..2...5.1........8.6... # first 2 from sudoku17
+.......12....35......6...7.7.....3.....4..8..1...........12.....8.....4..5....6..
+1.......2.9.4...5...6...7...5.3.4.......6........58.4...2...6...3...9.8.7.......1
+.....1.2.3...4.5.....6....7..2.....1.8..9..3.4.....8..5....2....9..3.4....67.....
+SUDOKU
+
+  def solve_all(sudoku)
+    mr, mc = sd_genmat()
+    sudoku.split('\n').compact_map do |line|
+      if line.size >= 81
+        ret = sd_solve(mr, mc, line)
+        ret.map(&.join)
+      end
+    end
+  end
+
+  def initialize(@n = 50)
+    @buf = IO::Memory.new
+  end
+
+  def run
+    @n.times do |i|
+      res = solve_all(SUDOKU)
+      res.each { |str| @buf << str }
+    end
+  end
+
+  def result
+    Digest::CRC32.checksum(@buf.to_s)
+  end
+
+  def expected
+    2095339900
+  end
+end
+
+class TextRaytracer < Benchmark
+  # from https://github.com/crystal-lang/crystal/blob/master/samples/text_raytracer.cr
+
+  record Vector, x : Float64, y : Float64, z : Float64 do
+    def scale(s)
+      Vector.new(x * s, y * s, z * s)
+    end
+
+    def +(other)
+      Vector.new(x + other.x, y + other.y, z + other.z)
+    end
+
+    def -(other)
+      Vector.new(x - other.x, y - other.y, z - other.z)
+    end
+
+    def dot(other)
+      x*other.x + y*other.y + z*other.z
+    end
+
+    def magnitude
+      Math.sqrt self.dot(self)
+    end
+
+    def normalize
+      scale(1.0 / magnitude)
+    end
+  end
+
+  record Ray, orig : Vector, dir : Vector
+
+  record Color, r : Float64, g : Float64, b : Float64 do
+    def scale(s)
+      Color.new(r * s, g * s, b * s)
+    end
+
+    def +(other)
+      Color.new(r + other.r, g + other.g, b + other.b)
+    end
+  end
+
+  record Sphere, center : Vector, radius : Float64, color : Color do
+    def get_normal(pt)
+      (pt - center).normalize
+    end
+  end
+
+  record Light, position : Vector, color : Color
+
+  record Hit, obj : Sphere, value : Float64
+
+  WHITE = Color.new(1.0, 1.0, 1.0)
+  RED   = Color.new(1.0, 0.0, 0.0)
+  GREEN = Color.new(0.0, 1.0, 0.0)
+  BLUE  = Color.new(0.0, 0.0, 1.0)
+
+  LIGHT1 = Light.new(Vector.new(0.7, -1.0, 1.7), WHITE)
+
+  def shade_pixel(ray, obj, tval)
+    pi = ray.orig + ray.dir.scale(tval)
+    color = diffuse_shading pi, obj, LIGHT1
+    col = (color.r + color.g + color.b) / 3.0
+    (col * 6.0).to_i
+  end
+
+  def intersect_sphere(ray, center, radius)
+    l = center - ray.orig
+    tca = l.dot(ray.dir)
+    if tca < 0.0
+      return nil
+    end
+
+    d2 = l.dot(l) - tca*tca
+    r2 = radius*radius
+    if d2 > r2
+      return nil
+    end
+
+    thc = Math.sqrt(r2 - d2)
+    t0 = tca - thc
+    # t1 = tca + thc
+    if t0 > 10_000
+      return nil
+    end
+
+    t0
+  end
+
+  def clamp(x, a, b)
+    return a if x < a
+    return b if x > b
+    x
+  end
+
+  def diffuse_shading(pi, obj, light)
+    n = obj.get_normal(pi)
+    lam1 = (light.position - pi).normalize.dot(n)
+    lam2 = clamp lam1, 0.0, 1.0
+    light.color.scale(lam2*0.5) + obj.color.scale(0.3)
+  end
+
+  LUT = ['.', '-', '+', '*', 'X', 'M']
+
+  SCENE = [
+    Sphere.new(Vector.new(-1.0, 0.0, 3.0), 0.3, RED),
+    Sphere.new(Vector.new(0.0, 0.0, 3.0), 0.8, GREEN),
+    Sphere.new(Vector.new(1.0, 0.0, 3.0), 0.4, BLUE),
+  ]
+
+  def initialize(@w = 2500 * 4, @h = 2200 * 4)
+    @res = 0_u64
+  end
+
+  def run
+    res = 0_u64
+    (0...@h).each do |j|
+      # puts "--"
+      (0...@w).each do |i|
+        fw, fi, fj, fh = @w.to_f, i.to_f, j.to_f, @h.to_f
+
+        ray = Ray.new(
+          Vector.new(0.0, 0.0, 0.0),
+          Vector.new((fi - fw/2.0)/fw, (fj - fh/2.0)/fh, 1.0).normalize
+        )
+
+        hit = nil
+
+        SCENE.each do |obj|
+          ret = intersect_sphere(ray, obj.center, obj.radius)
+          if ret
+            hit = Hit.new obj, ret
+          end
+        end
+
+        if hit
+          pixel = LUT[shade_pixel(ray, hit.obj, hit.value)]
+        else
+          pixel = ' '
+        end
+
+        res &+= pixel.ord
+      end
+    end
+    @res = res
+  end
+
+  def result
+    @res
+  end
+
+  def expected
+    3165789000
+  end
+end
