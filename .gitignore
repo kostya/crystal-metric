@@ -10,3 +10,4 @@ metric
 # Dependencies will be locked in applications that use them
 /shard.lock
 todo.txt
+bin_*

@@ -2146,7 +2146,7 @@ class TextRaytracer < Benchmark
     Sphere.new(Vector.new(1.0, 0.0, 3.0), 0.4, BLUE),
   ]
 
-  def initialize(@w = 2500 * 4, @h = 2200 * 4)
+  def initialize(@w : Int32 = 2500 * 4, @h : Int32 = 2200 * 4)
     @res = 0_u64
   end
 
