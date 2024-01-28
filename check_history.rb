@@ -14,13 +14,11 @@ DIRS = %w{
   crystal-1.10.1-1
   crystal-1.11.2-1
 }
-VERSIONS = DIRS.map { |v| v.gsub("crystal-", "").gsub("-1", "") }
 MODES = [["--release", "-O3 --single-module (--release)"], ["", "-O0"], "-O2", "-O1", "-O3", "-O2 --single-module", "-O1 --single-module", ["--single-module", "-O0 --single-module"]]
 
 results = {}
 
 p DIRS
-p VERSIONS
 
 def run(cmd)
   print "exec: `#{cmd}`, ... "
@@ -34,7 +32,8 @@ end
 
 TMP_FILENAME = "/tmp/metric.cr"
 
-VERSIONS.each do |version|
+DIRS.each do |dir|
+  version = dir.gsub("crystal-", "").gsub("-1", "")
   MODES.each do |mode|
     mode_desc = mode
     if mode.is_a?(Array)
@@ -45,7 +44,7 @@ VERSIONS.each do |version|
 
     FileUtils.cp("./metric.cr", TMP_FILENAME)
     out = "bin_metric_#{version}_#{mode_shell}"
-    cmd = "#{CRYSTALS_DIR}/crystal-#{version}-1/bin/crystal build #{TMP_FILENAME} #{mode} -o #{out}"
+    cmd = "#{CRYSTALS_DIR}/#{dir}/bin/crystal build #{TMP_FILENAME} #{mode} -o #{out}"
     `rm -rf ~/.cache/crystal`
     t1 = run(cmd)
     next unless t1
