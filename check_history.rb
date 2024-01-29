@@ -14,7 +14,7 @@ DIRS = [
   "~/Downloads/crystal/crystal-1.9.2-1",
   "~/Downloads/crystal/crystal-1.10.1-1",
   "~/Downloads/crystal/crystal-1.11.2-1",
-}
+]
 MODES = [
   ["--release", "-O3 --single-module (--release)"], 
   ["", "-O0"], 
@@ -88,7 +88,7 @@ DIRS.each do |dir|
       h["compile1"] = t1
       h["compile2"] = t2
       h["cf"] = v2.to_f
-      modes_h[mode] = h
+      modes_h[mode_desc] = h
       p h
     else
       puts "Out for cmd `#{cmd}` not found"
@@ -97,8 +97,8 @@ DIRS.each do |dir|
   end
 
   results << {
-    name: result_name,
-    modes: modes_h,
+    "name" => result_name,
+    "modes" => modes_h,
   }
 
   File.open(HISTORY_PATH, "w") { |f| f.write(results.to_yaml) }
