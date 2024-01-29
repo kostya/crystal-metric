@@ -12,10 +12,11 @@ with open("history.yml", "r") as stream:
 
 fig, axs = plt.subplots(3, figsize=(10, 15))
 
-versions = sorted(y.keys(), key=lambda v: version.parse(v))
+versions = []
 modes = []
-for version in y.keys():
-    modes += y[version]
+for h in y:
+    versions.append(h['name'])
+    modes += h['modes'].keys()
 modes = sorted(set(modes))
 # print(modes)
 
@@ -39,13 +40,15 @@ for mode in modes:
     comp_time = []
     comp_time2 = []
     cf = []
-    for version in versions:
-        if mode in y[version]:
+    for h in y:
+        version = h['name']
+        mode_h = h['modes']
+        if mode in mode_h:
             keys.append(version)
-            times.append(y[version][mode]['time'])
-            comp_time.append(y[version][mode]['compile1'])
-            comp_time2.append(y[version][mode]['compile2'])
-            cf.append(y[version][mode]['cf'])
+            times.append(mode_h[mode]['time'])
+            comp_time.append(mode_h[mode]['compile1'])
+            comp_time2.append(mode_h[mode]['compile2'])
+            cf.append(mode_h[mode]['cf'])
     axs[0].plot(keys, times)
     axs[0].scatter(keys, times, label=mode, s=100, marker='D')
 
