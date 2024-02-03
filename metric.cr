@@ -45,6 +45,7 @@ abstract class Benchmark
     ok = 0
     fails = 0
     silent = ENV["SILENT"]? == "1"
+    run_mark = ENV["RUN_MARK"]? == "1"
     if filter
       filter = filter.split(",").map(&.strip)
     end
@@ -54,6 +55,7 @@ abstract class Benchmark
         print "{{kl}}: " unless silent
         bench = {{kl.id}}.new
         GC.collect
+        puts "---RUN---" if run_mark
         t = Time.local
         bench.run
         delta = (Time.local - t).to_f
@@ -475,10 +477,12 @@ class Fasta < Benchmark
   IC =  29573
 
   class Last
+    @[AlwaysInline]
     def self.last
       @@last ||= 42
     end
 
+    @[AlwaysInline]
     def self.last=(x)
       @@last = x
     end

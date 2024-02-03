@@ -46,8 +46,12 @@ DIRS.each do |dir|
   result_name = nil
 
   if dir.is_a?(Array)
-    result_name = dir[1]
-    dir = dir[0]
+    path = dir[0]
+    if branch = dir[1]
+      run("cd #{path} && git checkout #{branch}")
+      result_name = branch
+    end
+    dir = path
   end
 
   result_name ||= begin
