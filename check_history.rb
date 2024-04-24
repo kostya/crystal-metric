@@ -14,6 +14,7 @@ DIRS = [
   "~/Downloads/crystal/crystal-1.9.2-1",
   "~/Downloads/crystal/crystal-1.10.1-1",
   "~/Downloads/crystal/crystal-1.11.2-1",
+  "~/Downloads/crystal/crystal-1.12.1-1",
 ]
 MODES = [
   ["--release", "-O3 --single-module (--release)"], 
@@ -78,6 +79,7 @@ DIRS.each do |dir|
     # change file and compile again
     changed_file = File.read(TMP_FILENAME) + "\n1 + rand\n"
     File.open(TMP_FILENAME, "w") { |f| f.write(changed_file) }
+    puts "Running #{mode_desc} ..."
     t2 = run(cmd)
     next unless t2
 

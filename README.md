@@ -43,4 +43,6 @@ TextRaytracer: ok in 1.589s, award 1.0
 
 ## Crystal releases:
 
+Results for Macbook M1
+
 ![Crystal releases](https://github.com/kostya/crystal-metric/blob/master/releases.png)

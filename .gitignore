@@ -11,3 +11,5 @@ metric
 /shard.lock
 todo.txt
 bin_*
+pyvenv.cfg
+/share/
