@@ -236,3 +236,45 @@
       compile1: 3.628026
       compile2: 3.670098
       cf: 0.2
+- name: 1.13.1
+  modes:
+    "-O3 --single-module (--release)":
+      time: 28.0144
+      compile1: 20.593711
+      compile2: 20.477077
+      cf: 1.0
+    "-O0":
+      time: 328.5213
+      compile1: 1.89489
+      compile2: 1.833176
+      cf: 0.2
+    "-O2":
+      time: 106.4869
+      compile1: 7.702664
+      compile2: 3.292409
+      cf: 0.46
+    "-O1":
+      time: 114.0392
+      compile1: 7.248639
+      compile2: 3.027857
+      cf: 0.44
+    "-O3":
+      time: 102.9134
+      compile1: 7.904939
+      compile2: 3.391993
+      cf: 0.47
+    "-O2 --single-module":
+      time: 28.7311
+      compile1: 19.596007
+      compile2: 19.580662
+      cf: 0.97
+    "-O1 --single-module":
+      time: 31.9365
+      compile1: 17.04246
+      compile2: 16.873356
+      cf: 0.94
+    "-O0 --single-module":
+      time: 327.5715
+      compile1: 3.665746
+      compile2: 3.694853
+      cf: 0.2

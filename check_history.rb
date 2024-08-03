@@ -15,6 +15,7 @@ DIRS = [
   "~/Downloads/crystal/crystal-1.10.1-1",
   "~/Downloads/crystal/crystal-1.11.2-1",
   "~/Downloads/crystal/crystal-1.12.1-1",
+  "~/Downloads/crystal/crystal-1.13.1-1",
 ]
 MODES = [
   ["--release", "-O3 --single-module (--release)"], 
