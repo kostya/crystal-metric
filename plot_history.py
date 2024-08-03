@@ -1,3 +1,7 @@
+# python3 -m venv .
+# source ./bin/activate
+# python3 plot_history.py 
+
 # pip3 install matplotlib
 import matplotlib.pyplot as plt
 # pip3 install pyyaml
