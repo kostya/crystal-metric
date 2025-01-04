@@ -53,40 +53,30 @@ abstract class Benchmark
     {% for kl in @type.subclasses %}
       if !filter || (filter && filter.includes?("{{kl.id}}"))
         print "{{kl}}: " unless silent
-        bench = {{kl.id}}.new
-        GC.collect
+
         puts "---RUN---" if run_mark
-        t = Time.local
-        bench.run
-        delta = (Time.local - t).to_f
-        results["{{kl.id}}"] = delta
+        bench = {{kl.id}}.new
+        bench._run
+        results["{{kl.id}}"] = bench.time_delta
         
         {% if flag?(:release) %}
           award = 1.0
         {% else %}
-          award = release_results["{{kl.id}}"] / delta
+          award = release_results["{{kl.id}}"] / bench.time_delta
         {% end %}
 
-        GC.collect
-        if bench.result == bench.expected
+        if bench.ok?
           print "ok " unless silent
-          ok += 1
         else
           print "err result=#{bench.result.inspect}, but expected=#{bench.expected.inspect} " unless silent
-          fails += 1
         end
-        
-        unless silent
-          print "in %.3fs, award %.1f\n" % {delta, award}
-        end
-        
-        summary_time += delta
-        awards += award
 
-        GC.collect
-        sleep 0.1
-        GC.collect
-        sleep 0.1
+        unless silent
+          print "in %.3fs, award %.1f\n" % {bench.time_delta, award}
+        end
+
+        summary_time += bench.time_delta
+        awards += award
       end
     {% end %}
 
@@ -100,6 +90,22 @@ abstract class Benchmark
       puts "%.4fs, %.2f/%d, %.2f" % {summary_time, awards, ok + fails, awards / (ok + fails).to_f}
     end
     exit 1 if fails > 0
+  end
+
+  getter time_delta : Float64 = 0
+
+  def _run
+    GC.collect
+    t = Time.local
+    self.run
+    @time_delta = (Time.local - t).to_f
+    GC.collect
+    sleep 0 # context switch, may be needed or maybe not, to close some coroutines
+    GC.collect
+  end
+
+  def ok?
+    self.result == self.expected
   end
 end
 
