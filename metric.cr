@@ -67,8 +67,10 @@ abstract class Benchmark
 
         if bench.ok?
           print "ok " unless silent
+          ok += 1
         else
           print "err result=#{bench.result.inspect}, but expected=#{bench.expected.inspect} " unless silent
+          fails += 1
         end
 
         unless silent
