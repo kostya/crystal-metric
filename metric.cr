@@ -23,7 +23,7 @@ def checksum(v)
   #Digest::MD5.hexdigest(v)
   hash = 5381_u32
   v.each_byte do |byte|
-    hash = ((hash << 5) + hash) + byte
+    hash = ((hash << 5) &+ hash) &+ byte
   end
   hash
 end
@@ -179,7 +179,7 @@ class Pidigits < Benchmark
   end
 
   def expected
-    2259604824
+    519471024
   end
 end
 
@@ -629,7 +629,7 @@ class Fasta < Benchmark
   end
 
   def expected
-    223599119
+    3574419414
   end
 end
 
@@ -691,7 +691,7 @@ class Knuckeotide < Benchmark
   end
 
   def expected
-    159474310
+    1459386462
   end
 end
 
@@ -748,7 +748,7 @@ class Mandelbrot < Benchmark
   end
 
   def expected
-    2862550248
+    58810785
   end
 end
 
@@ -1033,7 +1033,7 @@ class RegexDna < Benchmark
   end
 
   def expected
-    3506965167
+    2813760484
   end
 end
 
@@ -1077,7 +1077,7 @@ class Revcomp < Benchmark
   end
 
   def expected
-    3936352977
+    2734405216
   end
 end
 
@@ -1420,7 +1420,7 @@ class JsonGenerate < Benchmark
   end
 
   def expected
-    239861429
+    1584466874
   end
 end
 
@@ -1898,7 +1898,7 @@ SUDOKU
   end
 
   def expected
-    2095339900
+    3422637057
   end
 end
 
