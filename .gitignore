@@ -13,3 +13,4 @@ todo.txt
 bin_*
 pyvenv.cfg
 /share/
+download/
