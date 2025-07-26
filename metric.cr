@@ -1422,8 +1422,8 @@ class JsonParsePure < Benchmark
   def calc(text)
     jobj = JSON.parse(text)
     coordinates = jobj["coordinates"].as_a
-    len = coordinates.size
-    x = y = z = 0
+    len = coordinates.size.to_f
+    x = y = z = 0.0
 
     coordinates.each do |coord|
       x += coord["x"].as_f
@@ -1441,7 +1441,7 @@ class JsonParsePure < Benchmark
     j = JsonGenerate.new(600_000)
     j.run
     @text = j.@result.to_s
-    @result = Coordinate.new(0, 0, 0)
+    @result = Coordinate.new(0.0, 0.0, 0.0)
   end
 
   def run
@@ -1473,8 +1473,8 @@ class JsonParseSerializable < Benchmark
 
   def calc(text)
     coordinates = Coordinates.from_json(text).coordinates
-    len = coordinates.size
-    x = y = z = 0
+    len = coordinates.size.to_f
+    x = y = z = 0.0
 
     coordinates.each do |e|
       x += e.x
@@ -1514,7 +1514,7 @@ class JsonParsePull < Benchmark
 
   def calc(text)
     len = 0
-    x = y = z = 0
+    x = y = z = 0.0
 
     pull = JSON::PullParser.new(text)
     pull.on_key!("coordinates") do
@@ -1541,7 +1541,7 @@ class JsonParsePull < Benchmark
     j = JsonGenerate.new(800_000)
     j.run
     @text = j.@result.to_s
-    @result = Coordinate.new(0, 0, 0)
+    @result = Coordinate.new(0.0, 0.0, 0.0)
   end
 
   def run
