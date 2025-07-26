@@ -1,5 +1,6 @@
 /docs/
 /lib/
+lib64
 /bin/
 /.shards/
 *.dwarf
@@ -13,3 +14,4 @@ todo.txt
 bin_*
 pyvenv.cfg
 /share/
+download/

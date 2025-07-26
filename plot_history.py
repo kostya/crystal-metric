@@ -6,7 +6,7 @@
 import matplotlib.pyplot as plt
 # pip3 install pyyaml
 import yaml
-from packaging import version
+from packaging.version import parse
 
 with open("history.yml", "r") as stream:
     try:
@@ -14,6 +14,7 @@ with open("history.yml", "r") as stream:
     except yaml.YAMLError as exc:
         print(exc)
 
+y = sorted(y, key=lambda x: parse(x['name']))
 fig, axs = plt.subplots(4, figsize=(10, 18))
 
 versions = []
@@ -75,4 +76,13 @@ axs[0].legend(loc='center left')
 axs[1].legend(loc='center left')
 axs[2].legend(loc='center left')
 axs[3].legend(loc='center left')
+
+for ax in axs.flat:  # перебираем все оси в двумерном массиве
+    for label in ax.get_xticklabels():
+        label.set_rotation(90)
+    # или короче:
+    # ax.tick_params(axis='x', rotation=90)
+
+plt.tight_layout()
+
 plt.savefig('releases.png')
