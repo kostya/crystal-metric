@@ -1381,9 +1381,9 @@ class JsonGenerate < Benchmark
     letters = ('a'..'z').to_a
     @n.times do
       @data << Coordinate.new(
-        r.next_float,
-        r.next_float,
-        r.next_float,
+        r.next_float.round(10),
+        r.next_float.round(10),
+        r.next_float.round(10),
         "#{letters.sample(6, r).join} #{r.rand(10_000)}",
         {"1" => {1, true}},
       )
@@ -1401,7 +1401,7 @@ class JsonGenerate < Benchmark
   end
 
   def expected
-    2191513974
+    239861429
   end
 end
 
