@@ -1,4 +1,3 @@
-require "digest/md5"
 require "big"
 require "base64"
 require "json"
@@ -18,9 +17,15 @@ end
 {% end %}
 
 def checksum(v)
-  d = Digest::MD5.new
-  d.update(v)
-  d.result
+  #d = Digest::MD5.new
+  #d.update(v)
+  #d.result
+  #Digest::MD5.hexdigest(v)
+  hash = 5381_u32
+  v.each_byte do |byte|
+    hash = ((hash << 5) + hash) + byte
+  end
+  hash
 end
 
 abstract class Benchmark
