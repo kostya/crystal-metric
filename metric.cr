@@ -9,6 +9,14 @@ require "complex"
 # ./metric Brainfuck,Brainfuck2
 Benchmark.run(ARGV[0]?)
 
+{% if compare_versions(Crystal::VERSION, "0.28.0") < 0 %}
+struct Time
+  def self.local
+    now
+  end
+end
+{% end %}
+
 def checksum(v)
   d = Digest::MD5.new
   d.update(v)
