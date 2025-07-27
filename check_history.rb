@@ -85,7 +85,7 @@ DIRS.each do |dir|
       mode_desc = mode[1]
       mode = mode[0]
     end
-    mode_shell = mode.gsub("-", "_").gsub(" ", "").downcase
+    mode_shell = mode.gsub("-", "_").gsub(" ", "").gsub("/", "_").downcase
 
     FileUtils.cp("./metric.cr", TMP_FILENAME)
     out = "bin_metric_#{result_name}_#{mode_shell}"
