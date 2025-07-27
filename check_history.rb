@@ -4,22 +4,34 @@ require "fileutils"
 HISTORY_PATH = "./history.yml"
 TMP_FILENAME = "/tmp/metric.cr"
 DIRS = [
-  "~/Downloads/crystal/crystal-1.2.2-1",
-  "~/Downloads/crystal/crystal-1.3.2-1",
-  "~/Downloads/crystal/crystal-1.4.1-1",
-  "~/Downloads/crystal/crystal-1.5.1-1",
-  "~/Downloads/crystal/crystal-1.6.2-1",
-  "~/Downloads/crystal/crystal-1.7.3-1",
-  "~/Downloads/crystal/crystal-1.8.2-1",
-  "~/Downloads/crystal/crystal-1.9.2-1",
-  "~/Downloads/crystal/crystal-1.10.1-1",
-  "~/Downloads/crystal/crystal-1.11.2-1",
-  "~/Downloads/crystal/crystal-1.12.1-1",
-  "~/Downloads/crystal/crystal-1.13.1-1",
-  "~/Downloads/crystal/crystal-1.14.1-1",
-  "~/Downloads/crystal/crystal-1.15.0-1",
-  "~/Downloads/crystal/crystal-1.16.2-1",
-  "~/Downloads/crystal/crystal-1.17.0-1",
+  "~/projects/crystal-metric/download/crystal-0.27.2-1",
+"~/projects/crystal-metric/download/crystal-0.28.0-1",
+"~/projects/crystal-metric/download/crystal-0.29.0-1",
+"~/projects/crystal-metric/download/crystal-0.30.1-1",
+"~/projects/crystal-metric/download/crystal-0.31.1-1",
+"~/projects/crystal-metric/download/crystal-0.32.1-1",
+"~/projects/crystal-metric/download/crystal-0.33.0-1",
+"~/projects/crystal-metric/download/crystal-0.34.0-1",
+"~/projects/crystal-metric/download/crystal-0.35.1-1",
+"~/projects/crystal-metric/download/crystal-0.36.1-1",
+"~/projects/crystal-metric/download/crystal-1.0.0-1",
+"~/projects/crystal-metric/download/crystal-1.10.1-1",
+"~/projects/crystal-metric/download/crystal-1.1.1-1",
+"~/projects/crystal-metric/download/crystal-1.11.2-1",
+"~/projects/crystal-metric/download/crystal-1.12.2-1",
+"~/projects/crystal-metric/download/crystal-1.13.3-1",
+"~/projects/crystal-metric/download/crystal-1.14.0-1",
+"~/projects/crystal-metric/download/crystal-1.15.1-1",
+"~/projects/crystal-metric/download/crystal-1.16.2-1",
+"~/projects/crystal-metric/download/crystal-1.17.1-1",
+"~/projects/crystal-metric/download/crystal-1.2.2-1",
+"~/projects/crystal-metric/download/crystal-1.3.2-1",
+"~/projects/crystal-metric/download/crystal-1.4.1-1",
+"~/projects/crystal-metric/download/crystal-1.5.1-1",
+"~/projects/crystal-metric/download/crystal-1.6.2-1",
+"~/projects/crystal-metric/download/crystal-1.7.3-1",
+"~/projects/crystal-metric/download/crystal-1.8.2-1",
+"~/projects/crystal-metric/download/crystal-1.9.2-1"
 ]
 MODES = [
   ["--release", "-O3 --single-module (--release)"], 
@@ -44,7 +56,7 @@ def run(cmd)
   delta
 end
 
-if File.exists?(HISTORY_PATH)
+if File.exist?(HISTORY_PATH)
   results = YAML.load(File.read(HISTORY_PATH))
 end
 
