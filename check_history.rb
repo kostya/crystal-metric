@@ -73,7 +73,7 @@ DIRS.each do |dir|
   end
 
   result_name ||= begin
-    dir =~ /crystal-(.*?)-1/
+    dir.split("/").last =~ /crystal-(.*?)-1/
     $1
   end
 
