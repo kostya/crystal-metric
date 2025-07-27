@@ -2066,13 +2066,15 @@ class TextRaytracer < Benchmark
   end
 end
 
+# implement each_cartesian for older crystal
 {% if compare_versions(Crystal::VERSION, "1.2.2") < 0 %}
 module Indexable(T)
-  def each_cartesian(*others : Indexable, &block)
-    Indexable.each_cartesian_impl(self, *others) { |v| yield v }
+  def each_cartesian(other, &block)
+    Indexable.each_cartesian_impl(self, other) { |v| yield v }
   end
 
-  protected def self.each_cartesian_impl(*indexables : *U, &block) forall U
+  protected def self.each_cartesian_impl(a, b, &block) forall U
+    indexables = [a, b]
     lens = indexables.map &.size
     return if lens.any? &.zero?
 
@@ -2093,7 +2095,7 @@ module Indexable(T)
 
       {% begin %}
         yield Tuple.new(
-          {% for i in 0...U.size %}
+          {% for i in 0...2 %}
             indexables[{{ i }}].unsafe_fetch(indices[{{ i }}]),
           {% end %}
         )
