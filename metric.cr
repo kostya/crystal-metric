@@ -3,6 +3,8 @@ require "base64"
 require "json"
 require "complex"
 
+# require crystal at least 0.27.0 and older
+
 # ./metric
 # ./metric Brainfuck2
 # ./metric Brainfuck,Brainfuck2
@@ -17,10 +19,6 @@ Benchmark.run(ARGV[0]?)
 {% end %}
 
 def checksum(v)
-  # d = Digest::MD5.new
-  # d.update(v)
-  # d.result
-  # Digest::MD5.hexdigest(v)
   hash = 5381_u32
   v.each_byte do |byte|
     hash = ((hash << 5) &+ hash) &+ byte
