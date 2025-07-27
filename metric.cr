@@ -9,18 +9,18 @@ require "complex"
 Benchmark.run(ARGV[0]?)
 
 {% if compare_versions(Crystal::VERSION, "0.28.0") < 0 %}
-struct Time
-  def self.local
-    now
+  struct Time
+    def self.local
+      now
+    end
   end
-end
 {% end %}
 
 def checksum(v)
-  #d = Digest::MD5.new
-  #d.update(v)
-  #d.result
-  #Digest::MD5.hexdigest(v)
+  # d = Digest::MD5.new
+  # d.update(v)
+  # d.result
+  # Digest::MD5.hexdigest(v)
   hash = 5381_u32
   v.each_byte do |byte|
     hash = ((hash << 5) &+ hash) &+ byte
@@ -121,7 +121,7 @@ abstract class Benchmark
     self.run
     @time_delta = (Time.local - t).to_f
     GC.collect
-    sleep 0 # context switch, may be needed or maybe not, to close some coroutines
+    sleep 0.seconds # context switch, may be needed or maybe not, to close some coroutines
     GC.collect
   end
 
@@ -2063,5 +2063,197 @@ class TextRaytracer < Benchmark
 
   def expected
     3165789000
+  end
+end
+
+module Indexable(T)
+  def each_cartesian(*others : Indexable, &block)
+    Indexable.each_cartesian_impl(self, *others) { |v| yield v }
+  end
+
+  protected def self.each_cartesian_impl(*indexables : *U, &block) forall U
+    lens = indexables.map &.size
+    return if lens.any? &.zero?
+
+    n = indexables.size
+    indices = Array.new(n, 0)
+    indices[-1] -= 1
+
+    while true
+      i = n - 1
+      indices[i] += 1
+
+      while indices[i] >= lens[i]
+        indices[i] = 0
+        i -= 1
+        return if i < 0
+        indices[i] += 1
+      end
+
+      {% begin %}
+        yield Tuple.new(
+          {% for i in 0...U.size %}
+            indexables[{{ i }}].unsafe_fetch(indices[{{ i }}]),
+          {% end %}
+        )
+      {% end %}
+    end
+  end
+end
+
+class NeuralNet < Benchmark
+  # from https://github.com/crystal-lang/crystal/blob/master/samples/neural_net.cr
+
+  RANDOM = Random.new(0_u64, 0_u64)
+
+  class Synapse
+    property weight : Float64
+    property prev_weight : Float64
+    property :source_neuron
+    property :dest_neuron
+
+    def initialize(@source_neuron : Neuron, @dest_neuron : Neuron)
+      @prev_weight = @weight = RANDOM.next_float * 2 - 1
+    end
+  end
+
+  class Neuron
+    LEARNING_RATE = 1.0
+    MOMENTUM      = 0.3
+
+    property :synapses_in
+    property :synapses_out
+    property threshold : Float64
+    property prev_threshold : Float64
+    property :error
+    property :output
+
+    def initialize
+      @prev_threshold = @threshold = RANDOM.next_float * 2 - 1
+      @synapses_in = [] of Synapse
+      @synapses_out = [] of Synapse
+      @output = 0.0
+      @error = 0.0
+    end
+
+    def calculate_output
+      activation = synapses_in.reduce(0.0) do |sum, synapse|
+        sum + synapse.weight * synapse.source_neuron.output
+      end
+      activation -= threshold
+
+      @output = 1.0 / (1.0 + Math.exp(-activation))
+    end
+
+    def derivative
+      output * (1 - output)
+    end
+
+    def output_train(rate, target)
+      @error = (target - output) * derivative
+      update_weights(rate)
+    end
+
+    def hidden_train(rate)
+      @error = synapses_out.reduce(0.0) do |sum, synapse|
+        sum + synapse.prev_weight * synapse.dest_neuron.error
+      end * derivative
+      update_weights(rate)
+    end
+
+    def update_weights(rate)
+      synapses_in.each do |synapse|
+        temp_weight = synapse.weight
+        synapse.weight += (rate * LEARNING_RATE * error * synapse.source_neuron.output) + (MOMENTUM * (synapse.weight - synapse.prev_weight))
+        synapse.prev_weight = temp_weight
+      end
+      temp_threshold = threshold
+      @threshold += (rate * LEARNING_RATE * error * -1) + (MOMENTUM * (threshold - prev_threshold))
+      @prev_threshold = temp_threshold
+    end
+  end
+
+  class NeuralNetwork
+    @input_layer : Array(Neuron)
+    @hidden_layer : Array(Neuron)
+    @output_layer : Array(Neuron)
+
+    def initialize(inputs, hidden, outputs)
+      @input_layer = (1..inputs).map { Neuron.new }
+      @hidden_layer = (1..hidden).map { Neuron.new }
+      @output_layer = (1..outputs).map { Neuron.new }
+
+      @input_layer.each_cartesian(@hidden_layer) do |source, dest|
+        synapse = Synapse.new(source, dest)
+        source.synapses_out << synapse
+        dest.synapses_in << synapse
+      end
+      @hidden_layer.each_cartesian(@output_layer) do |source, dest|
+        synapse = Synapse.new(source, dest)
+        source.synapses_out << synapse
+        dest.synapses_in << synapse
+      end
+    end
+
+    def train(inputs, targets)
+      feed_forward(inputs)
+
+      @output_layer.zip(targets) do |neuron, target|
+        neuron.output_train(0.3, target)
+      end
+      @hidden_layer.each do |neuron|
+        neuron.hidden_train(0.3)
+      end
+    end
+
+    def feed_forward(inputs)
+      @input_layer.zip(inputs) do |neuron, input|
+        neuron.output = input.to_f64
+      end
+      @hidden_layer.each do |neuron|
+        neuron.calculate_output if neuron
+      end
+      @output_layer.each do |neuron|
+        neuron.calculate_output if neuron
+      end
+    end
+
+    def current_outputs
+      @output_layer.map do |neuron|
+        neuron.output
+      end
+    end
+  end
+
+  def initialize(@n = 1500000)
+    @res = [] of Float64
+  end
+
+  def run
+    xor = NeuralNetwork.new(2, 10, 1)
+
+    @n.times do
+      xor.train([0, 0], [0])
+      xor.train([1, 0], [1])
+      xor.train([0, 1], [1])
+      xor.train([1, 1], [0])
+    end
+
+    xor.feed_forward([0, 0])
+    @res += xor.current_outputs
+    xor.feed_forward([0, 1])
+    @res += xor.current_outputs
+    xor.feed_forward([1, 0])
+    @res += xor.current_outputs
+    xor.feed_forward([1, 1])
+    @res += xor.current_outputs
+  end
+
+  def result
+    @res
+  end
+
+  def expected
+    [0.000845335077086041, 0.9990857490807116, 0.9991775011715351, 0.0008922162500023385]
   end
 end
