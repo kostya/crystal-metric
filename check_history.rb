@@ -100,7 +100,7 @@ DIRS.each do |dir|
     t2 = run(cmd)
     next unless t2
 
-    if File.exists?(out)
+    if File.exist?(out)
       result = `./#{out}`
       res_line = result.split("\n")[-1]
       puts res_line
