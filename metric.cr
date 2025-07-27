@@ -2066,6 +2066,7 @@ class TextRaytracer < Benchmark
   end
 end
 
+{% if compare_versions(Crystal::VERSION, "1.2.2") < 0 %}
 module Indexable(T)
   def each_cartesian(*others : Indexable, &block)
     Indexable.each_cartesian_impl(self, *others) { |v| yield v }
@@ -2100,6 +2101,7 @@ module Indexable(T)
     end
   end
 end
+{% end %}
 
 class NeuralNet < Benchmark
   # from https://github.com/crystal-lang/crystal/blob/master/samples/neural_net.cr
